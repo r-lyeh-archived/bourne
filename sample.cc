@@ -6,6 +6,30 @@
 
 #include "medea.hpp"
 
+struct phones {
+    std::string country;
+    std::vector<int> phonelist;
+    std::string detail;
+};
+
+MEDEA_DEFINE( phones &it, (it.country, it.phonelist, it.detail) );
+
+/* or...
+namespace medea {
+    std::string to_json( const phones &ph ) {
+        auto p = std::make_tuple( ph.country, ph.phonelist, ph.detail );
+        std::string json = medea::to_json( p );
+        return json;
+    }
+    bool from_json( phones &ph, std::istream &is ) {
+        auto p = std::make_tuple( ph.country, ph.phonelist, ph.detail );
+        if( !medea::from_json( p, is ) )
+            return false;
+        tie( ph.country, ph.phonelist, ph.detail ) = p;
+        return true;
+    }
+}
+*/
 
 int main() {
 
@@ -87,15 +111,17 @@ int main() {
     TESTRW3( map );
     TESTRW3( list );
 
+    std::cout << std::string(15, '-') << std::endl;
+
     {
         typedef unsigned idx;
         typedef std::pair<std::string,std::vector<int>> /*country,phonelist*/ phones;
         std::map< idx, phones > map;
 
-        map[ 34 ].first = "spain";
+        map[ 34 ].first = std::string("spain");
         map[ 34 ].second.push_back(687936564);
         map[ 34 ].second.push_back(687936565);
-        map[ 30 ].first = "greece";
+        map[ 30 ].first = std::string("greece");
         map[ 30 ].second.push_back(123);
         map[ 30 ].second.push_back(456);
 
@@ -113,9 +139,12 @@ int main() {
         assert( map == saved );
 
         // ensure void jsondoc does cleaning
-        assert( medea::from_json(saved, "{}" ) );
+        assert( medea::from_json(saved, std::string() + medea::open_smap + medea::close_smap ) );
         assert( saved.size() == 0 );
+
+        std::cout << std::string(15, '-') << std::endl;
     }
+
 
     // high level
     {
@@ -141,42 +170,24 @@ int main() {
         std::cout << "load)" << std::endl;
         medea::load( map );
         medea::print( map );
+
+        std::cout << std::string(15, '-') << std::endl;
     }
 
-    // user def
-    #if 0
+    std::cout << medea::utils::encode("687936564") << std::endl;
+
+  #if 1
     {
-        struct phones {
-            std::string country;
-            std::vector<int> phonelist;
-
-            void proxy() {
-                medea::save( *this );
-                *this = phones();
-                medea::load( *this );
-            }
-        };
-        typedef unsigned idx;
-        std::map< idx, phones > map;
-
-        map[ 34 ].country = "spain";
-        map[ 34 ].phonelist.push_back(687936564);
-        map[ 34 ].phonelist.push_back(687936565);
-        map[ 30 ].country = "greece";
-        map[ 30 ].phonelist.push_back(123);
-        map[ 30 ].phonelist.push_back(456);
-
-        std::cout << "original)" << std::endl;
-        medea::print( map );
-
-        std::cout << "save-then-clear)" << std::endl;
-        medea::save( map );
-        medea::clear( map );
-        medea::print( map );
-
-        std::cout << "load)" << std::endl;
-        medea::load( map );
-        medea::print( map );
+        // user defined types
+        std::unordered_map<int,phones> p;
+        p[0].country = "+\"34\"";
+        p[0].phonelist.push_back( 123456 );
+        medea::print( p );
+        medea::save( p );
+        medea::clear( p );
+        medea::print( p );
+        medea::load( p );
+        medea::print( p );
     }
     #endif
 
