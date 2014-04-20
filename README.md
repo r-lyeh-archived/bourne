@@ -1,13 +1,38 @@
 medea
 =====
 
-Medea is a lightweight and tiny serializer for data interchange written in C++11
+- Medea is a lightweight and tiny serializer for data interchange written in C++11.
+- Medea supports JSON and MEDEA encodings.
+- Medea is tiny.
+- Medea is cross-platform.
+- Medea is MIT licensed.
 
-Medea draft is *not* public yet
+sample
+======
+
+```c++
+#include <iostream>
+#include "medea.hpp"
+
+int main() {
+    std::map< std::string, std::vector< std::string > > contacts = {
+        { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
+        { "marge",  {"homer",  "lisa",  "bart", "maggie" } },
+        { "lisa",   {"marge", "homer",  "bart", "maggie" } },
+        { "bart",   {"marge",  "lisa", "homer", "maggie" } },
+        { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
+    };
+    std::string json = medea::to_json( contacts );
+    std::cout << json << std::endl;
+}
+```
 
 spec
 ====
-```
+
+Medea draft is *not* public yet
+
+```c++
     // i believe this scheme is self-contained
 
     bool: true
