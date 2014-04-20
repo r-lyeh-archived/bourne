@@ -33,7 +33,7 @@ namespace medea {
 
 int main() {
 
-    // built-in types
+    // first-class classes are automatically serialized
     {
         std::map< std::string, std::vector< std::string > > contacts = {
             { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
@@ -44,21 +44,23 @@ int main() {
         };
         std::string json = medea::to_json( contacts );
         std::cout << json << std::endl;
+        std::string medea = medea::to_medea( contacts );
+        std::cout << medea << std::endl;
     }
 
+    // user defined classes require a thin MEDEA_DEFINE() wrapper
     {
-        // user defined types
-        std::unordered_map<int,phones> p, copy;
-        p[0].country = "+\"34\"";
-        p[0].phonelist.push_back( 123456 );
+        std::unordered_map<int,phones> list, copy;
+        list[0].country = "+\"34\"";
+        list[0].phonelist.push_back( 123456 );
 
-        std::string json = medea::to_json( p );
+        std::string json = medea::to_json( list );
         medea::from_json( copy, json );
 
-        assert( copy.size() == p.size() );
-        assert( copy[0].country == p[0].country );
-        assert( copy[0].phonelist == p[0].phonelist );
-        assert( copy[0].details == p[0].details );
+        assert( copy.size() == list.size() );
+        assert( copy[0].country == list[0].country );
+        assert( copy[0].phonelist == list[0].phonelist );
+        assert( copy[0].details == list[0].details );
 
         std::cout << json << std::endl;
     }

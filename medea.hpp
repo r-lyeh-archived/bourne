@@ -1,11 +1,7 @@
-// Medea is a lightweight JSON serializer for most STL containers.
-// - rlyeh ~~ listening to incredible hog / execution.
+/* Medea is a lightweight and tiny serializer written in C++11.
+ * Copyright (c) 2013,2014 Mario 'rlyeh' Rodriguez
 
-/*
- * A custom base91 encoder/decoder (XML and JSON friendly).
- * Copyright (c) 2011-2013 Mario 'rlyeh' Rodriguez
- *
- * Original basE91 encoder/decoder by Joachim Henke.
+ * Contains code based on basE91 encoder/decoder by Joachim Henke.
  * Copyright (c) 2000-2006 Joachim Henke
  * http://base91.sourceforge.net/ (v0.6.0)
 
@@ -33,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 
- * - rlyeh
+ * - rlyeh ~~ listening to Incredible Hog / Execution.
  */
 
 #pragma once
@@ -52,23 +48,100 @@
 
 namespace medea
 {
-    // constants
-    extern const bool pair_iskv;
-    extern const char separator;
-    extern const char separator_kv;
-    extern const char open_seq;
-    extern const char open_umap;
-    extern const char open_smap;
-    extern const char open_rope;
-    extern const char open_data;
-    extern const char close_seq;
-    extern const char close_umap;
-    extern const char close_smap;
-    extern const char close_rope;
-    extern const char close_data;
+    enum spec {
+        MEDEA,
+        JSON
+    };
 
-    // utils
-    class utils { public:
+    template <spec>
+    struct traits {};
+
+    template <>
+    struct traits<JSON> {
+        // json spec
+        static const bool pair_iskv = true;
+        static const char separator = ',',  separator_kv = ':';
+        static const char open_seq  = '[',  close_seq    = ']';
+        static const char open_umap = '{',  close_umap   = '}';
+        static const char open_smap = '{',  close_smap   = '}';
+        static const char open_rope = '\"', close_rope   = '\"';
+
+        static std::string quote( const std::string &t ) {
+            std::string out;
+            for( auto &it : t ) {
+                if( it != open_rope ) {
+                    out += it;
+                } else {
+                    out += "\\\"";
+                }
+            }
+            return std::string() + open_rope + out + close_rope;
+        }
+
+        static bool unquote( std::string &t, std::istream &is ) {
+            struct scope {
+                std::istream &is;
+                unsigned counter = 0;
+                scope( std::istream &_is ) : is( _is )
+                {}
+                ~scope() {
+                    while( counter-- ) {
+                        is.unget();
+                    }
+                }
+                bool operator >>( char &ch ) {
+                    return (!is.eof()) && (++counter) && (is >> ch);
+                }
+            } scoped_is( is );
+
+            t = std::string();
+            int status = 0;
+            char ch;
+            while( scoped_is >> ch ) {
+                if( status == 0 ) {
+                    if( ch == open_rope ) is >> std::noskipws, status++;
+                    else return false;
+                }
+                else
+                if( status == 1 ) {
+                    if( ch == close_rope ) return scoped_is.counter = 0, is >> std::skipws, true;
+                    if( ch != '\\' ) t += ch;
+                    else status++;
+                }
+                else
+                if( status == 2 ) {
+                    if( ch == close_rope ) status--, t += ch;
+                    else return false;
+                }
+            }
+            return false;
+        }
+    };
+
+    template <>
+    struct traits<MEDEA> {
+        // medea draft
+        static const bool pair_iskv = false;
+        static const char separator = ',',  separator_kv = ':';
+        static const char open_seq  = '[',  close_seq    = ']';
+        static const char open_umap = '{',  close_umap   = '}';
+        static const char open_smap = '<',  close_smap   = '>';
+        static const char open_rope = '\"', close_rope   = '\"';
+
+        static std::string quote( const std::string &t ) {
+            return traits<JSON>::quote( t );
+    //      return specs::encode( t );
+        }
+
+        static bool unquote( std::string &t, std::istream &is ) {
+            return traits<JSON>::unquote( t, is );
+    //      return specs::decode( t );
+        }
+    };
+
+    // specs, common
+    template< spec SPEC >
+    struct specs : public traits<SPEC> {
         static std::string encode( const std::string &binary ) {
             // rlyeh's modification
             static const unsigned char enctab[91] = {
@@ -162,69 +235,23 @@ namespace medea
             return ob;
         }
 
-        static std::string to_quote( const std::string &t ) {
-    //      return utils::encode( t );
-            std::string out;
-            for( auto &it : t )
-                if( it != open_rope )
-                    out += it;
-                else
-                    out += "\\\"";
-
-            return std::string() + open_rope + out + close_rope;
-        }
-
-        static bool from_quote( std::string &t, std::istream &is ) {
-    //      return utils::decode( t );
-            struct raiiss {
-                std::istream &is;
-                unsigned counter;
-                raiiss( std::istream &_is ) : counter(0), is(_is) {}
-                ~raiiss() { while( counter ) counter--, is.unget(); }
-                bool operator >>( char &ch ) {
-                    return (!is.eof()) && (++counter) && (is >> ch);
-                }
-            } raii(is);
-
-            t = std::string();
-            int status = 0;
-            char ch;
-            while( raii >> ch ) {
-                if( status == 0 ) {
-                    if( ch == open_rope ) is >> std::noskipws, status++;
-                    else return false;
-                }
-                else
-                if( status == 1 ) {
-                    if( ch == close_rope ) return raii.counter = 0, is >> std::skipws, true;
-                    if( ch != '\\' ) t += ch;
-                    else status++;
-                }
-                else
-                if( status == 2 ) {
-                    if( ch == close_rope ) status--, t += ch;
-                    else return false;
-                }
-            }
-            return false;
-        }
-
-        static bool next( const std::string &token, std::istream &is) {
+        static bool next( const std::string &token, std::istream &is ) {
             char ch;
             bool ok = true;
-            for( auto &it : token )
+            for( auto &it : token ) {
                 ok &= ( is >> ch ? ch == it : false );
+            }
             return ok;
         }
-        static bool prev( const std::string &token, std::istream &is) {
+        static bool prev( const std::string &token, std::istream &is ) {
             for( auto &it : token ) is.unget();
             return is.good();
         }
         static bool next( const char &ch, std::istream &is ) {
-            return utils::next( std::string() + ch, is );
+            return specs::next( std::string() + ch, is );
         }
         static bool prev( const char &ch, std::istream &is ) {
-            return utils::prev( std::string() + ch, is );
+            return specs::prev( std::string() + ch, is );
         }
     };
 
@@ -233,267 +260,245 @@ namespace medea
     //template<size_t N>
     //std::string to_json( const std::string::value_type (&t)[N] );
 
-    static inline std::string to_json( const std::string &t )                  { return utils::to_quote( t ); }
-    static inline std::string to_json( const std::string::value_type *t )      { return to_json( std::string(t) ); }
-    static inline std::string to_json( const std::string::value_type &t )      { return to_json( std::string() + t ); }
-    static inline std::string to_json( std::string::value_type * const &t )    { return to_json( std::string(t) ); }
+    template<class SPEC> std::string to( const std::string &t )                  { return SPEC::quote(t); }
+    template<class SPEC> std::string to( const std::string::value_type *t )      { return to<SPEC>( std::string(t) ); }
+    template<class SPEC> std::string to( const std::string::value_type &t )      { return to<SPEC>( std::string() + t ); }
+    template<class SPEC> std::string to( std::string::value_type * const &t )    { return to<SPEC>( std::string(t) ); }
 
-    static inline std::string to_json( const std::uint64_t &t )     { return std::to_string(t); }
-    static inline std::string to_json( const std::uint32_t &t )     { return to_json( std::uint64_t(t) ); }
-    static inline std::string to_json( const std::uint16_t &t )     { return to_json( std::uint64_t(t) ); }
-    static inline std::string to_json( const std::uint8_t &t )      { return to_json( std::uint64_t(t) ); }
+    template<class SPEC> std::string to( const std::uint64_t &t )     { return std::to_string(t); }
+    template<class SPEC> std::string to( const std::uint32_t &t )     { return to<SPEC>( std::uint64_t(t) ); }
+    template<class SPEC> std::string to( const std::uint16_t &t )     { return to<SPEC>( std::uint64_t(t) ); }
+    template<class SPEC> std::string to( const std::uint8_t &t )      { return to<SPEC>( std::uint64_t(t) ); }
 
-    static inline std::string to_json( const std::int64_t &t )      { return std::to_string(t); }
-    static inline std::string to_json( const std::int32_t &t )      { return to_json( std::int64_t(t) ); }
-    static inline std::string to_json( const std::int16_t &t )      { return to_json( std::int64_t(t) ); }
-    static inline std::string to_json( const std::int8_t &t )       { return to_json( std::int64_t(t) ); }
+    template<class SPEC> std::string to( const std::int64_t &t )      { return std::to_string(t); }
+    template<class SPEC> std::string to( const std::int32_t &t )      { return to<SPEC>( std::int64_t(t) ); }
+    template<class SPEC> std::string to( const std::int16_t &t )      { return to<SPEC>( std::int64_t(t) ); }
+    template<class SPEC> std::string to( const std::int8_t &t )       { return to<SPEC>( std::int64_t(t) ); }
 
-    static inline std::string to_json( const double &t )            { return std::to_string(t); }
-    static inline std::string to_json( const float &t )             { return to_json( double(t) ); }
-    static inline std::string to_json( const bool &t )              { return t ? "true" : "false"; }
-    static inline std::string to_json( const std::nullptr_t &t )    { return "null"; }
+    template<class SPEC> std::string to( const double &t )            { return std::to_string(t); }
+    template<class SPEC> std::string to( const float &t )             { return to<SPEC>( double(t) ); }
+    template<class SPEC> std::string to( const bool &t )              { return t ? "true" : "false"; }
+    template<class SPEC> std::string to( const std::nullptr_t &t )    { return "null"; }
 
     // imports
 
-    static inline bool from_json( std::string &t, std::istream &json )             { return utils::from_quote(t,json) ? true : false; }
-    static inline bool from_json( std::string::value_type &t, std::istream &json ) { std::string xx; return from_json(xx,json) ? t = xx[0], true : false; }
+    template<class SPEC> bool from( std::string &t, std::istream &json )             { return SPEC::unquote(t,json) ? true : false; }
+    template<class SPEC> bool from( std::string::value_type &t, std::istream &json ) { std::string i; return from<SPEC>(i,json) ? t = i[0], true : false; }
 
-    static inline bool from_json( std::uint64_t &t, std::istream &json )     { return json >> t ? true : false; }
-    static inline bool from_json( std::uint32_t &t, std::istream &json )     { std::uint64_t xx; return from_json( xx, json ) ? t = (std::uint32_t)(xx), true : false; }
-    static inline bool from_json( std::uint16_t &t, std::istream &json )     { std::uint64_t xx; return from_json( xx, json ) ? t = (std::uint16_t)(xx), true : false; }
-    static inline bool from_json( std::uint8_t &t, std::istream &json )      { std::uint64_t xx; return from_json( xx, json ) ? t = (std::uint8_t )(xx), true : false; }
+    template<class SPEC> bool from( std::uint64_t &t, std::istream &json )     { return json >> t ? true : false; }
+    template<class SPEC> bool from( std::int64_t  &t, std::istream &json )     { return json >> t ? true : false; }
+    template<class SPEC> bool from( std::uint32_t &t, std::istream &json )     { std::uint64_t i; return from<SPEC>( i, json ) ? t = (std::uint32_t)(i), true : false; }
+    template<class SPEC> bool from( std::int32_t  &t, std::istream &json )     { std::int64_t  i; return from<SPEC>( i, json ) ? t = (std::int32_t )(i), true : false; }
+    template<class SPEC> bool from( std::uint16_t &t, std::istream &json )     { std::uint64_t i; return from<SPEC>( i, json ) ? t = (std::uint16_t)(i), true : false; }
+    template<class SPEC> bool from( std::int16_t  &t, std::istream &json )     { std::int64_t  i; return from<SPEC>( i, json ) ? t = (std::int16_t )(i), true : false; }
+    template<class SPEC> bool from( std::uint8_t  &t, std::istream &json )     { std::uint64_t i; return from<SPEC>( i, json ) ? t = (std::uint8_t )(i), true : false; }
+    template<class SPEC> bool from( std::int8_t   &t, std::istream &json )     { std::int64_t  i; return from<SPEC>( i, json ) ? t = (std::int8_t  )(i), true : false; }
 
-    static inline bool from_json( std::int64_t &t, std::istream &json )      { return json >> t ? true : false; }
-    static inline bool from_json( std::int32_t &t, std::istream &json )      { std::int64_t xx; return  from_json( xx, json ) ? t = (std::int32_t)(xx), true : false; }
-    static inline bool from_json( std::int16_t &t, std::istream &json )      { std::int64_t xx; return  from_json( xx, json ) ? t = (std::int16_t)(xx), true : false; }
-    static inline bool from_json( std::int8_t &t, std::istream &json )       { std::int64_t xx; return  from_json( xx, json ) ? t = (std::int8_t )(xx), true : false; }
+    template<class SPEC> bool from( double &t, std::istream &json )            { return json >> t ? true : false; }
+    template<class SPEC> bool from( float &t, std::istream &json )             { double i; return from<SPEC>(i,json) ? t = float(i), true : false; }
 
-    static inline bool from_json( double &t, std::istream &json )            { return json >> t ? true : false; }
-    static inline bool from_json( float &t, std::istream &json )             { double xx; return from_json(xx,json) ? t = float(xx), true : false; }
-
-    static inline bool from_json( bool &t, std::istream &json ) {
-        if( utils::next(  "true", json ) ) return t = true, true;
-        if(!utils::prev(  "true", json ) ) return false;
-        if( utils::next( "false", json ) ) return t = false, true;
+    template<class SPEC> bool from( bool &t, std::istream &json ) {
+        if( SPEC::next(  "true", json ) ) return t = true, true;
+        if(!SPEC::prev(  "true", json ) ) return false;
+        if( SPEC::next( "false", json ) ) return t = false, true;
         return false;
     }
-    static inline bool from_json( std::nullptr_t &t, std::istream &json ) {
-        if( utils::next( "null", json ) ) return true;
-        return utils::prev( "null", json );
+    template<class SPEC> bool from( std::nullptr_t &t, std::istream &json ) {
+        if( SPEC::next( "null", json ) ) return true;
+        return SPEC::prev( "null", json );
     }
 
-    typedef std::nullptr_t undefined;
-
     // both sequence and associative containers
-    template<typename CONTAINER>
-    static inline std::string to_json( const CONTAINER &t ) {
+    template<class SPEC, typename CONTAINER>
+    std::string to( const CONTAINER &t ) {
         std::stringstream ss;
-        for( auto it = std::begin(t); it != std::end(t); ++it )
-            ss << medea::to_json(*it) << separator;
+        for( auto it = std::begin(t); it != std::end(t); ++it ) {
+            ss << medea::to<SPEC>(*it) << SPEC::separator;
+        }
         std::string text = ss.str();
-        const char in = open_seq, out = close_seq;
+        auto in = SPEC::open_seq, out = SPEC::close_seq;
         return std::string() + in + ( text.size() ? ( text.back() = out, text ) : text + out );
     }
 
     // pairs for associative containers
-    template<typename K, typename V>
-    static inline std::string to_json( const std::pair<K,V> &t ) {
+    template<class SPEC, typename K, typename V>
+    std::string to( const std::pair<K,V> &t ) {
         std::stringstream ss;
-        auto key = medea::to_json(t.first);
-        auto val = medea::to_json(t.second);
-        if( pair_iskv )
-        ss << open_seq << key << separator_kv << val << close_seq;
-        else
-        ss << open_seq << val << separator_kv << key << close_seq;
+        auto key = medea::to<SPEC>( t.first);
+        auto val = medea::to<SPEC>( t.second);
+        auto in = SPEC::open_seq, out = SPEC::close_seq, sep_kv = SPEC::separator_kv;
+        if( SPEC::pair_iskv ) ss << in << key << sep_kv << val << out;
+        else                  ss << in << val << sep_kv << key << out;
         return ss.str();
     }
 
     // associative containers, different encoding in/out characters
-#   define $expand(TYPE,open,close) \
-    template<typename K, typename V> \
-    static inline std::string to_json( const TYPE <K,V> &t ) {  \
+#   define $medea_expand(TYPE, OPEN, CLOSE) \
+    template<class SPEC, typename K, typename V> \
+    std::string to( const TYPE <K,V> &t ) {  \
+        auto in = SPEC::OPEN, out = SPEC::CLOSE; \
+        auto sep = SPEC::separator, sep_kv = SPEC::separator_kv; \
         std::stringstream ss; \
         for( const auto &kv : t ) { \
-            auto key = medea::to_json(kv.first); \
-            auto val = medea::to_json(kv.second); \
-            if( pair_iskv ) \
-            ss << key << separator_kv << val << separator; \
-            else \
-            ss << val << separator_kv << key << separator; \
+            auto key = medea::to<SPEC>(kv.first); \
+            auto val = medea::to<SPEC>(kv.second); \
+            if( SPEC::pair_iskv ) ss << key << sep_kv << val << sep; \
+            else                  ss << val << sep_kv << key << sep; \
         } \
         std::string text = ss.str(); \
-        const char in = open, out = close; \
         return std::string() + in + ( text.size() ? ( text.back() = out, text ) : text + out ); \
     }
-    $expand( std::map, open_smap, close_smap );
-    $expand( std::multimap, open_smap, close_smap );
-    $expand( std::unordered_map, open_umap, close_umap );
-    $expand( std::unordered_multimap, open_umap, close_umap );
-#   undef $expand
+    $medea_expand( std::map, open_smap, close_smap );
+    $medea_expand( std::multimap, open_smap, close_smap );
+    $medea_expand( std::unordered_map, open_umap, close_umap );
+    $medea_expand( std::unordered_multimap, open_umap, close_umap );
+#   undef $medea_expand
 
     // imports
 
     // pairs for associative containers
-    template<typename K, typename V>
-    static inline bool from_json( std::pair<K,V> &t, std::istream &is ) {
+    template<class SPEC, typename K, typename V>
+    bool from( std::pair<K,V> &t, std::istream &is ) {
         t = std::pair<K,V>();
         bool ok = true;
-        ok = ok && medea::utils::next(open_seq,is);
-        if(  ok && medea::utils::next(close_seq,is) ) return ok;
-        ok = ok && medea::utils::prev(close_seq,is);
-        if( pair_iskv ) {
-        ok = ok && medea::from_json(t.first, is);
-        ok = ok && medea::utils::next(separator_kv,is);
-        ok = ok && medea::from_json(t.second, is);
+        ok = ok && SPEC::next( SPEC::open_seq, is );
+        if(  ok && SPEC::next( SPEC::close_seq, is ) ) return ok;
+        ok = ok && SPEC::prev( SPEC::close_seq, is );
+        if( SPEC::pair_iskv ) {
+        ok = ok && medea::from<SPEC>( t.first, is );
+        ok = ok && SPEC::next( SPEC::separator_kv, is );
+        ok = ok && medea::from<SPEC>( t.second, is );
         } else {
-        ok = ok && medea::from_json(t.second, is);
-        ok = ok && medea::utils::next(separator_kv,is);
-        ok = ok && medea::from_json(t.first, is);
+        ok = ok && medea::from<SPEC>( t.second, is );
+        ok = ok && SPEC::next( SPEC::separator_kv, is );
+        ok = ok && medea::from<SPEC>( t.first, is );
         }
-        ok = ok && medea::utils::next(close_seq,is);
+        ok = ok && SPEC::next( SPEC::close_seq, is );
         return ok;
     }
 
     // both sequence and associative containers
-    template<typename CONTAINER>
-    static inline bool from_json( CONTAINER &t, std::istream &is ) {
+    template<class SPEC,typename CONTAINER>
+    bool from( CONTAINER &t, std::istream &is ) {
         typename CONTAINER::value_type val;
         t = CONTAINER();
         bool ok = true;
-        ok = ok && medea::utils::next(open_seq,is);
-        if(  ok && medea::utils::next(close_seq,is) ) return ok;
-        ok = ok && medea::utils::prev(close_seq,is);
+        ok = ok && SPEC::next( SPEC::open_seq, is );
+        if(  ok && SPEC::next( SPEC::close_seq, is ) ) return ok;
+        ok = ok && SPEC::prev( SPEC::close_seq, is );
         do {
-            ok = ok && medea::from_json(val, is);
+            ok = ok && medea::from<SPEC>(val, is );
             ok = ok && (std::inserter(t,t.end()) = val, true);
-        } while( ok && medea::utils::next(separator,is) );
-        ok = ok && medea::utils::prev(separator,is);
-        ok = ok && medea::utils::next(close_seq,is);
+        } while( ok && SPEC::next( SPEC::separator, is ) );
+        ok = ok && SPEC::prev( SPEC::separator, is );
+        ok = ok && SPEC::next( SPEC::close_seq, is );
         return ok;
     }
 
     // associative containers, different encoding in/out characters
-#   define $expand(TYPE,open,close) \
-    template<typename K, typename V> \
-    static inline bool from_json( TYPE <K,V> &t, std::istream &is ) { \
+#   define $medea_expand(TYPE,OPEN,CLOSE) \
+    template<class SPEC,typename K, typename V> \
+    bool from( TYPE <K,V> &t, std::istream &is ) { \
         std::pair<K,V> val; \
         t = TYPE<K,V>(); \
         bool ok = true; \
-        ok = ok && medea::utils::next(open,is); \
-        if(  ok && medea::utils::next(close,is) ) return ok; \
-        ok = ok && medea::utils::prev(close,is); \
+        ok = ok && SPEC::next( SPEC::OPEN, is ); \
+        if(  ok && SPEC::next( SPEC::CLOSE, is ) ) return ok; \
+        ok = ok && SPEC::prev( SPEC::CLOSE, is ); \
         do { \
-            if( pair_iskv ) { \
-            ok = ok && medea::from_json(val.first, is); \
-            ok = ok && medea::utils::next(separator_kv,is); \
-            ok = ok && medea::from_json(val.second, is); \
+            if( SPEC::pair_iskv ) { \
+            ok = ok && medea::from<SPEC>(val.first, is ); \
+            ok = ok && SPEC::next( SPEC::separator_kv, is ); \
+            ok = ok && medea::from<SPEC>(val.second, is ); \
             } else { \
-            ok = ok && medea::from_json(val.second, is); \
-            ok = ok && medea::utils::next(separator_kv,is); \
-            ok = ok && medea::from_json(val.first, is); \
+            ok = ok && medea::from<SPEC>(val.second, is ); \
+            ok = ok && SPEC::next( SPEC::separator_kv, is ); \
+            ok = ok && medea::from<SPEC>(val.first, is ); \
             } \
             ok = ok && (std::inserter(t,t.end()) = val, true); \
-        } while( ok && medea::utils::next(separator,is) ); \
-        ok = ok && medea::utils::prev(separator,is); \
-        ok = ok && medea::utils::next(close,is); \
+        } while( ok && SPEC::next( SPEC::separator, is ) ); \
+        ok = ok && SPEC::prev( SPEC::separator, is ); \
+        ok = ok && SPEC::next( SPEC::CLOSE, is ); \
         return ok; \
     }
-    $expand( std::map, open_smap, close_smap )
-    $expand( std::multimap, open_smap, close_smap )
-    $expand( std::unordered_map, open_umap, close_umap )
-    $expand( std::unordered_multimap, open_umap, close_umap )
-#   undef  $expand
+    $medea_expand( std::map, open_smap, close_smap )
+    $medea_expand( std::multimap, open_smap, close_smap )
+    $medea_expand( std::unordered_map, open_umap, close_umap )
+    $medea_expand( std::unordered_multimap, open_umap, close_umap )
+#   undef  $medea_expand
 
-    template<typename T>
-    static inline bool from_json( T &t, const std::string &s ) {
+    template<class SPEC, typename T>
+    bool from( T &t, const std::string &s ) {
         std::stringstream ss( s );
-        return from_json( t, ss );
+        return from<SPEC>( t, ss );
     }
 
     // tuples
 
     namespace {
-        template<class TUPLE, std::size_t N>
+        template<class SPEC, class TUPLE, std::size_t N>
         struct tuple {
-            static std::string to_json( const TUPLE& t ) {
-                return medea::tuple<TUPLE, N-1>::to_json(t) + separator + medea::to_json( std::get<N-1>(t) );
+            static std::string to( const TUPLE& t ) {
+                return medea::tuple<SPEC, TUPLE, N-1>::to(t) + SPEC::separator + medea::to<SPEC>( std::get<N-1>(t) );
             }
-            static bool from_json( TUPLE& t, std::istream &is ) {
+            static bool from( TUPLE& t, std::istream &is ) {
                 bool ok = true;
-                ok = ok && medea::tuple<TUPLE, N-1>::from_json( t, is );
-                ok = ok && medea::utils::next(separator,is);
-                ok = ok && medea::from_json( std::get<N-1>(t), is );
+                ok = ok && medea::tuple<SPEC, TUPLE, N-1>::from( t, is );
+                ok = ok && SPEC::next( SPEC::separator, is );
+                ok = ok && medea::from<SPEC>( std::get<N-1>(t), is );
                 return ok;
             }
         };
-        template<class TUPLE>
-        struct tuple<TUPLE, 1> {
-            static std::string to_json( const TUPLE& t ) {
-                return medea::to_json( std::get<0>(t) );
+        template<class SPEC, class TUPLE>
+        struct tuple<SPEC, TUPLE, 1> {
+            static std::string to( const TUPLE& t ) {
+                return medea::to<SPEC>( std::get<0>(t) );
             }
-            static bool from_json( TUPLE& t, std::istream &is) {
-                return medea::from_json( std::get<0>(t), is );
+            static bool from( TUPLE& t, std::istream &is ) {
+                return medea::from<SPEC>( std::get<0>(t), is );
             }
         };
     }
-    template<class... Args>
-    static inline std::string to_json( const std::tuple<Args...>& t ) {
+    template<class SPEC, class... Args>
+    std::string to( const std::tuple<Args...>& t ) {
         std::stringstream ss;
-        ss << open_seq;
-        ss << medea::tuple<decltype(t), sizeof...(Args)>::to_json(t);
-        ss << close_seq;
+        ss << SPEC::open_seq;
+        ss << medea::tuple<SPEC, decltype(t), sizeof...(Args)>::to(t);
+        ss << SPEC::close_seq;
         return ss.str();
     }
-    template<class... Args>
-    static inline bool from_json( std::tuple<Args...> &t, std::istream &is ) {
+    template<class SPEC, class... Args>
+    bool from( std::tuple<Args...> &t, std::istream &is ) {
         bool ok = true;
-        ok = ok && medea::utils::next(open_seq,is);
-        if(  ok && medea::utils::next(close_seq,is) ) return ok;
-        ok = ok && medea::utils::prev(close_seq,is);
-        ok = ok && medea::tuple<decltype(t), sizeof...(Args)>::from_json(t,is);
-        ok = ok && medea::utils::next(close_seq,is);
+        ok = ok && SPEC::next( SPEC::open_seq, is );
+        if(  ok && SPEC::next( SPEC::close_seq, is ) ) return ok;
+        ok = ok && SPEC::prev( SPEC::close_seq, is );
+        ok = ok && medea::tuple<SPEC, decltype(t), sizeof...(Args)>::from(t, is );
+        ok = ok && SPEC::next( SPEC::close_seq, is );
         return ok;
     }
 
     // high level object saving/loading
 
-    class archive {
-        std::stringstream ss;
-        const bool is_loading;
-        const bool is_saving;
-        //others...
-        const bool is_json;
-
-        explicit archive( bool L, bool S ) : is_loading(L), is_saving(S), is_json(true)
-        {}
-
-        template<typename T>
-        archive &operator ,( T &t ) {
-            if( is_loading ) ss << to_json(t);
-            if( is_saving  ) from_json(t,ss);
-            return *this;
-        }
-    };
-
     struct obj {
         template<typename T>
-        static T &get(int idx) {
-            typedef std::pair<std::thread::id,int> pair;
+        static T &get(const void *ptr) {
+            typedef std::pair<std::thread::id,const void *> pair;
             static std::map<pair, T> all;
-            pair p( std::this_thread::get_id(), idx );
+            pair p( std::this_thread::get_id(), ptr );
             return all[ p ] = all[ p ];
         }
     };
 
     template<typename T>
     void save( const T& t ) {
-        std::string json = medea::to_json( t );
-        obj::get<std::string>((int)&t) = json;
+        std::string json = to<specs<JSON>>( t );
+        obj::get<std::string>(&t) = json;
     }
     template<typename T>
     bool load( T& t ) {
-        std::string json = obj::get<std::string>((int)&t);
-        return from_json( t, json );
+        std::string json = obj::get<std::string>(&t);
+        return from<specs<JSON>>( t, json );
     }
     template<typename T>
     void clear( T& t ) {
@@ -501,7 +506,7 @@ namespace medea
     }
     template<typename T>
     std::ostream &print( const T &t, std::ostream &os = std::cout ) {
-        return os << medea::to_json(t) << std::endl, os;
+        return os << to<specs<JSON>>(t) << std::endl, os;
     }
     template<typename T>
     std::string diff( const T &t0, const T &t1 ) {
@@ -516,12 +521,12 @@ namespace medea
 
     template<typename T>
     bool test( const T &obj ) {
-        std::string before = medea::to_json( obj );
+        std::string before = to<specs<JSON>>( obj );
         auto copy = T();
-        if( !medea::from_json( copy, before ) ) {
+        if( !from<specs<JSON>>( copy, before ) ) {
             return false;
         }
-        std::string after = medea::to_json( copy );
+        std::string after = to<specs<JSON>>( copy );
         return before == after;
     }
 }
@@ -529,14 +534,37 @@ namespace medea
 // optional custom-class autoserialization macro
 #define MEDEA_DEFINE( OBJECT, PARGS ) \
 namespace medea { \
-    std::string to_json( const ::OBJECT ) { \
+    template<class SPEC> \
+    std::string to( const OBJECT ) { \
         auto _tpl = std::make_tuple PARGS; \
-        return medea::to_json( _tpl ); \
+        return medea::to<SPEC>( _tpl ); \
     } \
-    bool from_json( ::OBJECT, std::istream &is ) { \
+    template<class SPEC> \
+    bool from( OBJECT, std::istream &is ) { \
         auto _tpl = std::make_tuple PARGS; \
-        return medea::from_json( _tpl, is ) ? (std::tie PARGS = _tpl, true) : false;  \
+        return medea::from<SPEC>( _tpl, is ) ? (std::tie PARGS = _tpl, true) : false;  \
     } \
+}
+
+namespace medea {
+
+    template <typename T>
+    std::string to_json( const T &t ) {
+        return to<specs<JSON>>( t );
+    }
+    template <typename T>
+    std::string to_medea( const T &t ) {
+        return to<specs<MEDEA>>( t );
+    }
+
+    template <typename T, typename ISTREAM>
+    bool from_json( T &t, ISTREAM &is ) {
+        return from<specs<JSON>>( t, is );
+    }
+    template <typename T, typename ISTREAM >
+    bool from_medea( T &t, ISTREAM &is ) {
+        return from<specs<MEDEA>>( t, is );
+    }
 }
 
 #if 0

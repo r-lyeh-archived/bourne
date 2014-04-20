@@ -145,7 +145,7 @@ int main() {
         assert( map == saved );
 
         // ensure void jsondoc does cleaning
-        assert( medea::from_json(saved, std::string() + medea::open_smap + medea::close_smap ) );
+        assert( medea::from_json(saved, "{}" ) );
         assert( saved.size() == 0 );
 
         std::cout << std::string(15, '-') << std::endl;
@@ -180,7 +180,7 @@ int main() {
         std::cout << std::string(15, '-') << std::endl;
     }
 
-    std::cout << medea::utils::encode("687936564") << std::endl;
+    std::cout << medea::specs<medea::MEDEA>::encode("687936564") << std::endl;
 
   #if 1
     {

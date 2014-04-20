@@ -1,28 +1,66 @@
 medea
 =====
 
-- Medea is a lightweight and tiny serializer for data interchange written in C++11.
-- Medea supports JSON and MEDEA encodings.
-- Medea is tiny.
-- Medea is cross-platform.
-- Medea is MIT licensed.
+- Medea is a lightweight and tiny serializer. In mythology, also Jason's wife.
+- First-class classes and most STL containers are automatically serialized.
+- Support for JSON and MEDEA serialization formats.
+- Cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
+- OS dependencies only. No third party dependencies.
+- Tiny. Header only.
+- MIT licensed.
 
 sample
 ======
 
 ```c++
-#include <iostream>
 #include "medea.hpp"
 
 int main() {
-    std::map< std::string, std::vector< std::string > > contacts = {
+    std::unordered_map< std::string, std::vector< std::string > > contacts = {
         { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
         { "marge",  {"homer",  "lisa",  "bart", "maggie" } },
         { "lisa",   {"marge", "homer",  "bart", "maggie" } },
         { "bart",   {"marge",  "lisa", "homer", "maggie" } },
         { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
     };
+    // first-class classes are automatically serialized
     std::string json = medea::to_json( contacts );
+    std::cout << json << std::endl;
+}
+```
+
+possible output
+===============
+
+```json
+{
+    "homer":["marge","lisa","bart","maggie"],
+    "marge":["homer","lisa","bart","maggie"],
+    "bart":["marge","lisa","homer","maggie"],
+    "lisa":["marge","homer","bart","maggie"],
+    "maggie":["marge","lisa","bart","homer"]
+}
+```
+
+cons
+====
+
+- Custom classes require a thin wrapper. Ie,
+
+```c++
+#include "medea.hpp"
+
+struct phones {
+    std::string country;
+    std::vector<int> phonelist;
+    std::string details;
+};
+
+MEDEA_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
+
+int main() {
+    phones ph = { "spain", {123,456}, "" };
+    std::string json = medea::to_json( ph );
     std::cout << json << std::endl;
 }
 ```
@@ -30,11 +68,10 @@ int main() {
 spec
 ====
 
-Medea draft is *not* public yet
+- Medea serialization draft is *not* public yet.
+- Medea spec should be more uniform than JSON and should support binary data as well.
 
 ```c++
-    // i believe this scheme is self-contained
-
     bool: true
     bool: false
     string: "quoted ""string"""
@@ -44,58 +81,10 @@ Medea draft is *not* public yet
     number: uint64
     number: int64
 
-    value @ key
-    value [@ null]
+    keyvalues: value @ key [, value @ key [ , ... ] ]
+    values: value [@ null] [, value [ @ nulll ] [ , ... ] ]
 
     [] sequence
     {} unsorted keymap
     <> sorted keymap
-
-    // types
-    typedef std::string             string;
-    typedef std::string::value_type character;
-
-    typedef std::nullptr_t null;
-    typedef bool           boolean;
-    typedef float          float32;
-    typedef double         float64;
-
-    typedef std::int8_t    int8;
-    typedef std::int16_t   int16;
-    typedef std::int32_t   int32;
-    typedef std::int64_t   int64;
-
-    typedef std::uint8_t   uint8;
-    typedef std::uint16_t  uint16;
-    typedef std::uint32_t  uint32;
-    typedef std::uint64_t  uint64;
-
-    std::string quote( const medea::string &t ) {
-        std::string out;
-        for( auto &it : t )
-            if( it != '\"' )
-                out += it;
-            else
-                out += "\"\"";
-        return std::string() + '\"' + out + '\"';
-    }
-
-    // both sequence and associative containers
-    template<typename container>
-    std::string to_medea( const container &t ) {
-        std::stringstream ss;
-        for( const auto &it : t )
-            ss << medea::to_json(it) << ',';
-        const char in = '[', out = ']';
-        std::string text = ss.str();
-        return std::string() + in + ( text.size() ? ( text.back() = out, text ) : text + out );
-    }
-
-    // pairs for associative containers
-    template<typename K, typename V>
-    std::string to_medea( const std::pair<K,V> &t ) {
-        std::stringstream ss;
-        ss << medea::to_json(t.second) << "@" << medea::to_json(t.first);
-        return ss.str();
-    }
 ```
