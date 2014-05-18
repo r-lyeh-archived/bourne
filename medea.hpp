@@ -334,8 +334,8 @@ namespace medea
 
     // associative containers, different encoding in/out characters
 #   define $medea_expand(TYPE, OPEN, CLOSE) \
-    template<class SPEC, typename K, typename V> \
-    std::string to( const TYPE <K,V> &t ) {  \
+    template<class SPEC, typename K, typename V, typename... Params> \
+    std::string to( const TYPE <K,V,Params...> &t ) {  \
         auto in = SPEC::OPEN, out = SPEC::CLOSE; \
         auto sep = SPEC::separator, sep_kv = SPEC::separator_kv; \
         std::stringstream ss; \
@@ -397,10 +397,10 @@ namespace medea
 
     // associative containers, different encoding in/out characters
 #   define $medea_expand(TYPE,OPEN,CLOSE) \
-    template<class SPEC,typename K, typename V> \
-    bool from( TYPE <K,V> &t, std::istream &is ) { \
+    template<class SPEC,typename K, typename V, typename... Params> \
+    bool from( TYPE <K,V,Params...> &t, std::istream &is ) { \
         std::pair<K,V> val; \
-        t = TYPE<K,V>(); \
+        t = TYPE<K,V,Params...>(); \
         bool ok = true; \
         ok = ok && SPEC::next( SPEC::OPEN, is ); \
         if(  ok && SPEC::next( SPEC::CLOSE, is ) ) return ok; \
