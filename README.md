@@ -7,7 +7,7 @@ medea
 - Cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
 - OS dependencies only. No third party dependencies.
 - Tiny. Header only.
-- MIT licensed.
+- BOOST licensed.
 
 sample
 ======
