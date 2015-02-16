@@ -1,4 +1,4 @@
-Bourne
+Bourne <a href="https://travis-ci.org/r-lyeh/bourne"><img src="https://api.travis-ci.org/r-lyeh/bourne.svg?branch=master" align="right" /></a>
 ======
 
 - Bourne is a lightweight JSON serializer (C++11).
