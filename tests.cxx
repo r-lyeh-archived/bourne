@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-#include "medea.hpp"
+#include "bourne.hpp"
 
 struct phones {
     std::string country;
@@ -12,18 +12,18 @@ struct phones {
     std::string detail;
 };
 
-MEDEA_DEFINE( phones &it, (it.country, it.phonelist, it.detail) );
+BOURNE_DEFINE( phones &it, (it.country, it.phonelist, it.detail) );
 
 /* or...
-namespace medea {
+namespace bourne {
     std::string to_json( const phones &it ) {
         auto p = std::make_tuple( it.country, it.phonelist, it.detail );
-        std::string json = medea::to_json( p );
+        std::string json = bourne::to_json( p );
         return json;
     }
     bool from_json( phones &it, std::istream &is ) {
         auto p = std::make_tuple( it.country, it.phonelist, it.detail );
-        if( !medea::from_json( p, is ) )
+        if( !bourne::from_json( p, is ) )
             return false;
         tie( it.country, it.phonelist, it.detail ) = p;
         return true;
@@ -49,41 +49,41 @@ int main() {
     purestl list(2); list[0]=map; list[1]=map;
 
 #   define TESTR(a) [&]() { \
-        std::cout << medea::to_json(a) << std::endl; \
+        std::cout << bourne::to_json(a) << std::endl; \
     }()
 
 #   define TESTW1(original) [&](){ \
         auto copy = original; auto newcopy = decltype(copy)(0); \
-        std::istringstream json( medea::to_json(copy) ); \
-        if( !medea::from_json(newcopy,json) ) { \
+        std::istringstream json( bourne::to_json(copy) ); \
+        if( !bourne::from_json(newcopy,json) ) { \
             std::cout <<"[FAIL] cant convert from json" << std::endl; \
         } else { \
             if( newcopy != copy ) { \
-                std::cout <<"[FAIL] " << medea::to_json(newcopy) << " vs " << medea::to_json(copy) << " failed!" << std::endl; \
+                std::cout <<"[FAIL] " << bourne::to_json(newcopy) << " vs " << bourne::to_json(copy) << " failed!" << std::endl; \
             } \
         } \
     }()
 #   define TESTW2(original) [&](){ \
         auto copy = original; auto newcopy = decltype(copy)(0); \
         assert( newcopy != copy ); \
-        std::istringstream json( medea::to_json(copy) ); \
-        if( !medea::from_json(newcopy,json) ) { \
+        std::istringstream json( bourne::to_json(copy) ); \
+        if( !bourne::from_json(newcopy,json) ) { \
             std::cout <<"[FAIL] cant convert from json" << std::endl; \
         } else { \
             if( newcopy != copy ) { \
-                std::cout <<"[FAIL] " << medea::to_json(newcopy) << " vs " << medea::to_json(copy) << " failed!" << std::endl; \
+                std::cout <<"[FAIL] " << bourne::to_json(newcopy) << " vs " << bourne::to_json(copy) << " failed!" << std::endl; \
             } \
         } \
     }()
 #   define TESTW3(original) [&](){ \
         auto copy = original; auto newcopy = decltype(copy)(); \
         assert( newcopy != copy ); \
-        std::istringstream json( medea::to_json(copy) ); \
-        if( !medea::from_json(newcopy,json) ) { \
+        std::istringstream json( bourne::to_json(copy) ); \
+        if( !bourne::from_json(newcopy,json) ) { \
             std::cout <<"[FAIL] cant convert from json" << std::endl; \
         } else { \
 		  if( newcopy != copy ) { \
-              std::cout << "[FAIL] " << medea::to_json(newcopy) << " vs " << medea::to_json(copy) << " failed!" << std::endl; \
+              std::cout << "[FAIL] " << bourne::to_json(newcopy) << " vs " << bourne::to_json(copy) << " failed!" << std::endl; \
             } \
         } \
     }()
@@ -134,18 +134,18 @@ int main() {
         auto saved = map;
 
             std::cout << "original)" << std::endl;
-            std::string json = medea::to_json( map );
+            std::string json = bourne::to_json( map );
             std::cout << json << std::endl;
 
             std::cout << "copy)" << std::endl;
             map.clear();
-            medea::from_json( map, json );
-            std::cout << medea::to_json( map ) << std::endl;
+            bourne::from_json( map, json );
+            std::cout << bourne::to_json( map ) << std::endl;
 
         assert( map == saved );
 
         // ensure void jsondoc does cleaning
-        assert( medea::from_json(saved, "{}" ) );
+        assert( bourne::from_json(saved, "{}" ) );
         assert( saved.size() == 0 );
 
         std::cout << std::string(15, '-') << std::endl;
@@ -166,21 +166,21 @@ int main() {
         map[ 30 ].second.push_back(456);
 
         std::cout << "original)" << std::endl;
-        medea::print( map );
+        bourne::print( map );
 
         std::cout << "save-then-clear)" << std::endl;
-        medea::save( map );
-        medea::clear( map );
-        medea::print( map );
+        bourne::save( map );
+        bourne::clear( map );
+        bourne::print( map );
 
         std::cout << "load)" << std::endl;
-        medea::load( map );
-        medea::print( map );
+        bourne::load( map );
+        bourne::print( map );
 
         std::cout << std::string(15, '-') << std::endl;
     }
 
-    std::cout << medea::specs<medea::MEDEA>::encode("687936564") << std::endl;
+    std::cout << bourne::specs<bourne::JSON>::encode("687936564") << std::endl;
 
   #if 1
     {
@@ -188,12 +188,12 @@ int main() {
         std::unordered_map<int,phones> p;
         p[0].country = "+\"34\"";
         p[0].phonelist.push_back( 123456 );
-        medea::print( p );
-        medea::save( p );
-        medea::clear( p );
-        medea::print( p );
-        medea::load( p );
-        medea::print( p );
+        bourne::print( p );
+        bourne::save( p );
+        bourne::clear( p );
+        bourne::print( p );
+        bourne::load( p );
+        bourne::print( p );
     }
     #endif
 

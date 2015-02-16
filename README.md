@@ -1,19 +1,18 @@
-medea
-=====
+Bourne
+======
 
-- Medea is a lightweight and tiny serializer. In mythology, also Jason's wife.
-- First-class classes and most STL containers are automatically serialized.
-- Support for JSON and MEDEA serialization formats.
-- Cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
-- OS dependencies only. No third party dependencies.
-- Tiny. Header only.
-- BOOST licensed.
+- Bourne is a lightweight JSON serializer (C++11).
+- Bourne is handy. First-class classes and most STL containers are automatically serialized.
+- Bourne is cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
+- Bourne is self-contained. Standard dependencies only.
+- Bourne is tiny. Header only.
+- Bourne is BOOST licensed.
 
 sample
 ======
 
 ```c++
-#include "medea.hpp"
+#include "bourne.hpp"
 
 int main() {
     std::unordered_map< std::string, std::vector< std::string > > contacts = {
@@ -24,7 +23,7 @@ int main() {
         { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
     };
     // first-class classes are automatically serialized
-    std::string json = medea::to_json( contacts );
+    std::string json = bourne::to_json( contacts );
     std::cout << json << std::endl;
 }
 ```
@@ -48,7 +47,7 @@ cons
 - Custom classes require a thin wrapper. Ie,
 
 ```c++
-#include "medea.hpp"
+#include "bourne.hpp"
 
 struct phones {
     std::string country;
@@ -56,35 +55,11 @@ struct phones {
     std::string details;
 };
 
-MEDEA_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
+BOURNE_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
 
 int main() {
-    phones ph = { "spain", {123,456}, "" };
-    std::string json = medea::to_json( ph );
+    phones ph = { "uk", {123,456}, "another contact" };
+    std::string json = bourne::to_json( ph );
     std::cout << json << std::endl;
 }
-```
-
-spec
-====
-
-- Medea serialization draft is *not* public yet.
-- Medea spec should be more uniform than JSON and should support binary data as well.
-
-```c++
-    bool: true
-    bool: false
-    string: "quoted ""string"""
-    character: "a" // string of one
-    binary: stringof( base91x(data...) )
-    number: double
-    number: uint64
-    number: int64
-
-    keyvalues: value @ key [, value @ key [ , ... ] ]
-    values: value [@ null] [, value [ @ nulll ] [ , ... ] ]
-
-    [] sequence
-    {} unsorted keymap
-    <> sorted keymap
 ```

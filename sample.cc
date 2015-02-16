@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-#include "medea.hpp"
+#include "bourne.hpp"
 
 struct phones {
     std::string country;
@@ -12,18 +12,18 @@ struct phones {
     std::string details;
 };
 
-MEDEA_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
+BOURNE_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
 
 /* or...
-namespace medea {
+namespace bourne {
     std::string to_json( const phones &it ) {
         auto p = std::make_tuple( it.country, it.phonelist, it.detail );
-        std::string json = medea::to_json( p );
+        std::string json = bourne::to_json( p );
         return json;
     }
     bool from_json( phones &it, std::istream &is ) {
         auto p = std::make_tuple( it.country, it.phonelist, it.detail );
-        if( !medea::from_json( p, is ) )
+        if( !bourne::from_json( p, is ) )
             return false;
         tie( it.country, it.phonelist, it.detail ) = p;
         return true;
@@ -42,20 +42,18 @@ int main() {
             { "bart",   {"marge",  "lisa", "homer", "maggie" } },
             { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
         };
-        std::string json = medea::to_json( contacts );
+        std::string json = bourne::to_json( contacts );
         std::cout << json << std::endl;
-        std::string medea = medea::to_medea( contacts );
-        std::cout << medea << std::endl;
     }
 
-    // user defined classes require a thin MEDEA_DEFINE() wrapper
+    // user defined classes require a thin bourne_DEFINE() wrapper
     {
         std::unordered_map<int,phones> list, copy;
-        list[0].country = "+\"34\"";
-        list[0].phonelist.push_back( 123456 );
+        list[0].country = "+\"12\"";
+        list[0].phonelist.push_back( 345678 );
 
-        std::string json = medea::to_json( list );
-        medea::from_json( copy, json );
+        std::string json = bourne::to_json( list );
+        bourne::from_json( copy, json );
 
         assert( copy.size() == list.size() );
         assert( copy[0].country == list[0].country );
