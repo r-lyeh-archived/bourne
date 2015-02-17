@@ -181,8 +181,8 @@ namespace bourne
     template<class SPEC, typename CONTAINER>
     std::string to( const CONTAINER &t ) {
         std::stringstream ss;
-        for( auto it = std::begin(t); it != std::end(t); ++it ) {
-            ss << bourne::to<SPEC>(*it) << SPEC::separator;
+        for( const auto &it : t ) {
+            ss << bourne::to<SPEC>(it) << SPEC::separator;
         }
         std::string text = ss.str();
         auto in = SPEC::open_seq, out = SPEC::close_seq;
