@@ -1,10 +1,10 @@
+#include "bourne.hpp"
+
 #include <cassert>
 #include <iostream>
-#include <map>
 #include <vector>
 #include <string>
-
-#include "bourne.hpp"
+#include <unordered_map>
 
 struct phones {
     std::string country;
@@ -14,56 +14,23 @@ struct phones {
 
 BOURNE_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
 
-/* or...
-namespace bourne {
-    std::string to_json( const phones &it ) {
-        auto p = std::make_tuple( it.country, it.phonelist, it.detail );
-        std::string json = bourne::to_json( p );
-        return json;
-    }
-    bool from_json( phones &it, std::istream &is ) {
-        auto p = std::make_tuple( it.country, it.phonelist, it.detail );
-        if( !bourne::from_json( p, is ) )
-            return false;
-        tie( it.country, it.phonelist, it.detail ) = p;
-        return true;
-    }
-}
-*/
-
 int main() {
+    // first-class objects are automatically serialized
+    std::unordered_map< std::string, std::vector< std::string > > contacts = {
+        { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
+        { "marge",  {"homer",  "lisa",  "bart", "maggie" } },
+        { "lisa",   {"marge", "homer",  "bart", "maggie" } },
+        { "bart",   {"marge",  "lisa", "homer", "maggie" } },
+        { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
+    }, built;
+    std::cout << bourne::to_json( contacts ) << std::endl;
 
-    // first-class classes are automatically serialized
-    {
-        std::map< std::string, std::vector< std::string > > contacts = {
-            { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
-            { "marge",  {"homer",  "lisa",  "bart", "maggie" } },
-            { "lisa",   {"marge", "homer",  "bart", "maggie" } },
-            { "bart",   {"marge",  "lisa", "homer", "maggie" } },
-            { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
-        };
-        std::string json = bourne::to_json( contacts );
-        std::cout << json << std::endl;
-    }
+    // loading/saving showcase
+    std::string json = bourne::to_json( contacts );
+    bourne::from_json( built, json );
+    assert( built == contacts );
 
-    // user defined classes require a thin bourne_DEFINE() wrapper
-    {
-        std::unordered_map<int,phones> list, copy;
-        list[0].country = "+\"12\"";
-        list[0].phonelist.push_back( 345678 );
-
-        std::string json = bourne::to_json( list );
-        bourne::from_json( copy, json );
-
-        assert( copy.size() == list.size() );
-        assert( copy[0].country == list[0].country );
-        assert( copy[0].phonelist == list[0].phonelist );
-        assert( copy[0].details == list[0].details );
-
-        std::cout << json << std::endl;
-    }
-
-    std::cout << "All ok." << std::endl;
-
-    return 0;
+    // custom objects require a thin BOURNE_DEFINE() wrapper
+    phones list = { "uk", {123,456}, "just a few contacts" };
+    std::cout << bourne::to_json( list ) << std::endl;
 }

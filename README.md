@@ -1,53 +1,40 @@
 Bourne <a href="https://travis-ci.org/r-lyeh/bourne"><img src="https://api.travis-ci.org/r-lyeh/bourne.svg?branch=master" align="right" /></a>
 ======
 
-- Bourne is a lightweight JSON serializer (C++11).
-- Bourne is handy. First-class classes and most STL containers are automatically serialized.
+- Bourne is a lightweight JSON de/serializer (C++11).
+- Bourne is handy. First-class classes and most STL containers are SFINAE serialized.
 - Bourne is cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
-- Bourne is self-contained. Standard dependencies only.
-- Bourne is tiny. Header only.
+- Bourne is header-only. No dependencies. Tiny.
 - Bourne is BOOST licensed.
 
-sample
-======
-
+## Quick tutorial
 ```c++
-#include "bourne.hpp"
-
-int main() {
-    std::unordered_map< std::string, std::vector< std::string > > contacts = {
-        { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
-        { "marge",  {"homer",  "lisa",  "bart", "maggie" } },
-        { "lisa",   {"marge", "homer",  "bart", "maggie" } },
-        { "bart",   {"marge",  "lisa", "homer", "maggie" } },
-        { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
-    };
-    // first-class classes are automatically serialized
-    std::string json = bourne::to_json( contacts );
-    std::cout << json << std::endl;
+namespace bourne {
+    // save, serialization
+    bool to_json( std::string &t, const T &t );
+    bool to_json( std::ostream &os, const T &t );
+    // load, deserialization
+    bool from_json( T &t, std::istream &is );
+    bool from_json( T &t, const std::string &s );
+    // syntax sugars
+    std::string to_json( const T &t );
+    T from_json( std::istream &is );
+    T from_json( const std::string &str );
 }
 ```
 
-possible output
-===============
+## Notes
+- Bourne uses a relaxed JSON spec that allows de/serialization of associative keys of any kind.
+- Therefore, if you plan to produce compliant JSON files then use strings as keys types in associative containers.
 
-```json
-{
-    "homer":["marge","lisa","bart","maggie"],
-    "marge":["homer","lisa","bart","maggie"],
-    "bart":["marge","lisa","homer","maggie"],
-    "lisa":["marge","homer","bart","maggie"],
-    "maggie":["marge","lisa","bart","homer"]
-}
-```
-
-cons
-====
-
-- Custom classes require a thin wrapper. Ie,
-
+## Sample
 ```c++
 #include "bourne.hpp"
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <unordered_map>
 
 struct phones {
     std::string country;
@@ -58,8 +45,35 @@ struct phones {
 BOURNE_DEFINE( phones &it, (it.country, it.phonelist, it.details) );
 
 int main() {
-    phones ph = { "uk", {123,456}, "another contact" };
-    std::string json = bourne::to_json( ph );
-    std::cout << json << std::endl;
+    // first-class objects are automatically serialized
+    std::unordered_map< std::string, std::vector< std::string > > contacts = {
+        { "homer",  {"marge",  "lisa",  "bart", "maggie" } },
+        { "marge",  {"homer",  "lisa",  "bart", "maggie" } },
+        { "lisa",   {"marge", "homer",  "bart", "maggie" } },
+        { "bart",   {"marge",  "lisa", "homer", "maggie" } },
+        { "maggie", {"marge",  "lisa",  "bart",  "homer" } }
+    }, built;
+    std::cout << bourne::to_json( contacts ) << std::endl;
+
+    // loading/saving showcase
+    std::string json = bourne::to_json( contacts );
+    bourne::from_json( built, json );
+    assert( built == contacts );
+
+    // custom objects require a thin BOURNE_DEFINE() wrapper
+    phones list = { "uk", {123,456}, "just a few contacts" };
+    std::cout << bourne::to_json( list ) << std::endl;
 }
+```
+
+## Possible output
+```json
+{
+    "homer":["marge","lisa","bart","maggie"],
+    "marge":["homer","lisa","bart","maggie"],
+    "bart":["marge","lisa","homer","maggie"],
+    "lisa":["marge","homer","bart","maggie"],
+    "maggie":["marge","lisa","bart","homer"]
+}
+[ "uk", [ 123, 456 ], "just a few contacts" ]
 ```
