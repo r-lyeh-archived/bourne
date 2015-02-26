@@ -25,7 +25,7 @@ int main() {
     }, built;
     std::cout << bourne::to_json( contacts ) << std::endl;
 
-    // loading/saving showcase
+    // saving/loading showcase
     std::string json = bourne::to_json( contacts );
     bourne::from_json( built, json );
     assert( built == contacts );

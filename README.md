@@ -2,10 +2,32 @@ Bourne <a href="https://travis-ci.org/r-lyeh/bourne"><img src="https://api.travi
 ======
 
 - Bourne is a lightweight JSON de/serializer (C++11).
-- Bourne is handy. First-class classes and most STL containers are SFINAE serialized.
+- Bourne is handy. First-class objects and most STL containers are auto serialized (SFINAE).
 - Bourne is cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
 - Bourne is header-only. No dependencies. Tiny.
 - Bourne is BOOST licensed.
+
+## Current STL status
+
+| standard template | Supported? |
+| :-----------------|:----------:|
+| std::array        | no         |
+| std::bitset       | no         |
+| std::chrono       | no         |
+| std::complex      | no         |
+| std::deque        | yes        |
+| std::forward_list | no         |
+| std::list         | yes        |
+| std::map          | yes        |
+| std::queue        | no         |
+| std::set          | yes        |
+| std::stack        | no         |
+| std::string       | yes        |
+| std::tuple        | yes        |
+| std::unordered_map | yes       |
+| std::unordered_set | yes       |
+| std::vector       | yes        |
+| std::wstring      | no         |
 
 ## Quick tutorial
 ```c++
@@ -55,7 +77,7 @@ int main() {
     }, built;
     std::cout << bourne::to_json( contacts ) << std::endl;
 
-    // loading/saving showcase
+    // saving/loading showcase
     std::string json = bourne::to_json( contacts );
     bourne::from_json( built, json );
     assert( built == contacts );

@@ -42,12 +42,13 @@ namespace bourne {
         static void basic( std::istream &in, std::string::value_type &t ) { std::string i; basic(in,i); t = i[0]; }
 
         static void basic( std::istream &in, std::uint64_t &t )     { in >> t; }
-        static void basic( std::istream &in, std::int64_t  &t )     { in >> t; }
         static void basic( std::istream &in, std::uint32_t &t )     { std::uint64_t i;  basic( in, i ); t = (std::uint32_t)(i); }
-        static void basic( std::istream &in, std::int32_t  &t )     { std::int64_t  i;  basic( in, i ); t = (std::int32_t )(i); }
         static void basic( std::istream &in, std::uint16_t &t )     { std::uint64_t i;  basic( in, i ); t = (std::uint16_t)(i); }
-        static void basic( std::istream &in, std::int16_t  &t )     { std::int64_t  i;  basic( in, i ); t = (std::int16_t )(i); }
         static void basic( std::istream &in, std::uint8_t  &t )     { std::uint64_t i;  basic( in, i ); t = (std::uint8_t )(i); }
+
+        static void basic( std::istream &in, std::int64_t  &t )     { in >> t; }
+        static void basic( std::istream &in, std::int32_t  &t )     { std::int64_t  i;  basic( in, i ); t = (std::int32_t )(i); }
+        static void basic( std::istream &in, std::int16_t  &t )     { std::int64_t  i;  basic( in, i ); t = (std::int16_t )(i); }
         static void basic( std::istream &in, std::int8_t   &t )     { std::int64_t  i;  basic( in, i ); t = (std::int8_t  )(i); }
 
         static void basic( std::istream &in, double &t )            { in >> t; }
@@ -60,13 +61,19 @@ namespace bourne {
                 i.pop_back();
                 in.unget();
             }
-            t = ( i == "true" );
-            if( !t && i != "false" ) {
-                in.setstate( std::ios::failbit ); 
-            }
+            /**/ if( i == "true"  ) t = true;
+            else if( i == "false" ) t = false;
+            else t = false, in.setstate( std::ios::failbit ); 
         }
+
         static void basic( std::istream &in, std::nullptr_t &t ) {
-            std::string i; in >> i; t = t; // ( i == "null" ? 0 : 0 );
+            std::string i; 
+            in >> i; 
+            while( i.size() && (i.back() < 'a' || i.back() > 'z') ) {
+                i.pop_back();
+                in.unget();
+            }
+            if( i != "null" ) in.setstate( std::ios::failbit );
         }          
     }
 
@@ -107,53 +114,73 @@ namespace bourne {
 
     struct trait {
         typedef char true_type;
-        struct false_type{ true_type _[2]; };
+        typedef long false_type;
     };
+    
+    // C/C++ string trait
+    
+    template<class T> 
+    struct is_string : std::integral_constant<
+        bool,
+        std::is_same<char const *, typename std::decay<T>::type>::value ||
+        std::is_same<char       *, typename std::decay<T>::type>::value
+    > {};
 
-    template <typename T> // sequential container detector (beware of std::string)
-    struct is_container : trait {
-        template <typename U> static true_type  has_iterator_checker(typename U::iterator *);
-        template <typename U> static false_type has_iterator_checker(...);
-        enum { 
-            value = (sizeof(has_iterator_checker<T>(0)) == sizeof(true_type))
+    template <>
+    struct is_string<std::string> : std::true_type {};
+    
+    // associative container trait (has_iterator && has_key_type && has_mapped_type)
+
+    template <typename T> 
+    struct is_associative : trait {
+        template <typename U> static true_type  has_iterator(typename U::iterator *);
+        template <typename U> static false_type has_iterator(...);
+        template <typename U> static true_type  has_key(typename U::key_type *);
+        template <typename U> static false_type has_key(...);
+        template <typename U> static true_type  has_mapped(typename U::mapped_type *);
+        template <typename U> static false_type has_mapped(...);
+        enum {
+            value = ( true 
+                && (sizeof(has_iterator<T>(0)) == sizeof(true_type)) 
+                && (sizeof(has_key<T>(0)) == sizeof(true_type)) 
+                && (sizeof(has_mapped<T>(0)) == sizeof(true_type)) 
+            )
         };
     };
 
-    template <typename T> // pair container detector
+    // sequential container trait (has_iterator && has_value && !is_string)
+
+    template <typename T> 
+    struct is_sequential : trait {
+        template <typename U> static true_type  has_iterator(typename U::iterator *);
+        template <typename U> static false_type has_iterator(...);
+        template <typename U> static true_type  has_value(typename U::value_type *);
+        template <typename U> static false_type has_value(...);
+        enum { 
+            value = ( true
+                && (!is_string<T>::value) 
+                && (!is_associative<T>::value)
+                && (sizeof(has_iterator<T>(0)) == sizeof(true_type)) 
+                && (sizeof(has_value<T>(0)) == sizeof(true_type)) 
+            )
+        };
+    };
+
+    // pair container trait (has_first && has_second)
+
+    template <typename T> 
     struct is_pair : trait {
         template <typename U> static true_type  has_first(typename U::first_type *);
         template <typename U> static false_type has_first(...);
         template <typename U> static true_type  has_second(typename U::second_type *);
         template <typename U> static false_type has_second(...);
         enum {
-            value = (sizeof(has_first<T>(0)) == sizeof(true_type)) && (sizeof(has_second<T>(0)) == sizeof(true_type))
+            value = ( true 
+                && (sizeof(has_first<T>(0)) == sizeof(true_type)) 
+                && (sizeof(has_second<T>(0)) == sizeof(true_type)) 
+            )
         };
     };
-    
-    template <typename T> // associative container detector
-    struct is_mapped : trait {
-        template <typename U> static true_type  has_key(typename U::key_type *);
-        template <typename U> static false_type has_key(...);
-        template <typename U> static true_type  has_value(typename U::mapped_type *);
-        template <typename U> static false_type has_value(...);
-        enum {
-            value = (sizeof(has_key<T>(0)) == sizeof(true_type)) && (sizeof(has_value<T>(0)) == sizeof(true_type))
-        };
-    };
-    
-    template<class T> // C string and std::string container detector
-    struct is_string : std::integral_constant<
-          bool,
-          std::is_same<char const *, typename std::decay<T>::type>::value ||
-          std::is_same<char       *, typename std::decay<T>::type>::value
-    > {};
-
-    template <>
-    struct is_string<std::string> : std::true_type {};
-
-    template <class T1, class T2>
-        struct is_affined :
-            std::is_same<T1 const volatile, T2 const volatile> {};
 
     // helpers (type which holds an unsigned integer value)
 
@@ -179,7 +206,8 @@ namespace bourne {
         // generic parsers
 
         template <class... Args>
-        static void parse( std::istream &in, std::tuple<Args...> &t ) {
+        static void 
+        parse( std::istream &in, std::tuple<Args...> &t ) {
             t = std::tuple<Args...> {};
             char sep;
             in >> ( sep = '[' );
@@ -188,14 +216,15 @@ namespace bourne {
         }
 
         template <typename T>
-        static typename std::enable_if< !is_container<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
         parse( std::istream &in, T &t ) {
             t = T {};
-            bourne::imports::basic( in, t );
+            bourne::imports::
+            basic( in, t );
         }
 
         template <typename T>
-        static typename std::enable_if< !is_container<T>::value && is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && is_pair<T>::value >::type 
         parse( std::istream &in, T &t ) {
             t = T {};
             char sep;
@@ -207,14 +236,7 @@ namespace bourne {
         }        
 
         template <typename T>
-        static typename std::enable_if< is_container<T>::value && is_string<T>::value && !is_mapped<T>::value >::type 
-        parse( std::istream &in, T &t ) {
-            t = T {};
-            bourne::imports::basic( in, t );
-        }        
-
-        template <typename T>
-        static typename std::enable_if< is_container<T>::value && !is_string<T>::value && is_mapped<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && is_associative<T>::value && !is_pair<T>::value >::type 
         parse( std::istream &in, T &t ) {
             t = T {};
             char sep;
@@ -230,7 +252,7 @@ namespace bourne {
         }
 
         template <typename T>
-        static typename std::enable_if< is_container<T>::value && !is_string<T>::value && !is_mapped<T>::value >::type 
+        static typename std::enable_if< is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
         parse( std::istream &in, T &t) {
             t = T {};
             char sep;
@@ -261,21 +283,22 @@ namespace bourne {
         // generic printers
 
         template <class... Args>
-        static void print( std::ostream &out, const std::tuple<Args...> &t ) {
+        static void 
+        print( std::ostream &out, const std::tuple<Args...> &t ) {
             out << "[ ";
             tuple( out, t, int_<sizeof...(Args)>() ); 
             out << " ]";
         }
 
         template <typename T>
-        static typename std::enable_if< !is_container<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
         print( std::ostream &out, T const &t ) {
-            using namespace bourne::exports;
+            bourne::exports::
             basic( out, t );
         }
 
         template <typename T>
-        static typename std::enable_if< !is_container<T>::value && is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && is_pair<T>::value >::type 
         print( std::ostream &out, T const &t ) {
             out << "{ ";
             print( out, t.first );
@@ -285,14 +308,7 @@ namespace bourne {
         }        
 
         template <typename T>
-        static typename std::enable_if< is_container<T>::value && is_string<T>::value && !is_mapped<T>::value >::type 
-        print( std::ostream &out, T const &t ) {
-            using namespace bourne::exports;
-            basic( out, t );
-        }        
-
-        template <typename T>
-        static typename std::enable_if< is_container<T>::value && !is_string<T>::value && is_mapped<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && is_associative<T>::value && !is_pair<T>::value >::type 
         print( std::ostream &out, T const &t ) {
             std::string sep;
             out << "{ ";
@@ -307,7 +323,7 @@ namespace bourne {
         }
 
         template <typename T>
-        static typename std::enable_if< is_container<T>::value && !is_string<T>::value && !is_mapped<T>::value >::type 
+        static typename std::enable_if< is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
         print( std::ostream &out, T const &t ) {
             std::string sep;
             out << "[ ";
