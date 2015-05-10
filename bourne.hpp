@@ -1,5 +1,5 @@
 /* Bourne is a lightweight JSON serializer written in C++11 w/ SFINAE.
- * Copyright (c) 2013,2014,2015 Mario 'rlyeh' Rodriguez. ZLIB/LibPNG licensed
+ * Copyright (c) 2013,2014,2015 Mario 'rlyeh' Rodriguez, zlib/libpng licensed.
 
  * - rlyeh ~~ listening to Incredible Hog / Execution.
  */
@@ -37,7 +37,7 @@ namespace bourne {
                     }
                 }
             }
-        }    
+        }
 
         static void basic( std::istream &in, std::string::value_type &t ) { std::string i; basic(in,i); t = i[0]; }
 
@@ -55,26 +55,26 @@ namespace bourne {
         static void basic( std::istream &in, float &t )             { double i; basic( in, i ); t = float(i); }
 
         static void basic( std::istream &in, bool &t ) {
-            std::string i; 
-            in >> i; 
+            std::string i;
+            in >> i;
             while( i.size() && (i.back() < 'a' || i.back() > 'z') ) {
                 i.pop_back();
                 in.unget();
             }
             /**/ if( i == "true"  ) t = true;
             else if( i == "false" ) t = false;
-            else t = false, in.setstate( std::ios::failbit ); 
+            else t = false, in.setstate( std::ios::failbit );
         }
 
         static void basic( std::istream &in, std::nullptr_t &t ) {
-            std::string i; 
-            in >> i; 
+            std::string i;
+            in >> i;
             while( i.size() && (i.back() < 'a' || i.back() > 'z') ) {
                 i.pop_back();
                 in.unget();
             }
             if( i != "null" ) in.setstate( std::ios::failbit );
-        }          
+        }
     }
 
     namespace exports {
@@ -116,10 +116,10 @@ namespace bourne {
         typedef char true_type;
         typedef long false_type;
     };
-    
+
     // C/C++ string trait
-    
-    template<class T> 
+
+    template<class T>
     struct is_string : std::integral_constant<
         bool,
         std::is_same<char const *, typename std::decay<T>::type>::value ||
@@ -128,10 +128,10 @@ namespace bourne {
 
     template <>
     struct is_string<std::string> : std::true_type {};
-    
+
     // associative container trait (has_iterator && has_key_type && has_mapped_type)
 
-    template <typename T> 
+    template <typename T>
     struct is_associative : trait {
         template <typename U> static true_type  has_iterator(typename U::iterator *);
         template <typename U> static false_type has_iterator(...);
@@ -140,44 +140,44 @@ namespace bourne {
         template <typename U> static true_type  has_mapped(typename U::mapped_type *);
         template <typename U> static false_type has_mapped(...);
         enum {
-            value = ( true 
-                && (sizeof(has_iterator<T>(0)) == sizeof(true_type)) 
-                && (sizeof(has_key<T>(0)) == sizeof(true_type)) 
-                && (sizeof(has_mapped<T>(0)) == sizeof(true_type)) 
+            value = ( true
+                && (sizeof(has_iterator<T>(0)) == sizeof(true_type))
+                && (sizeof(has_key<T>(0)) == sizeof(true_type))
+                && (sizeof(has_mapped<T>(0)) == sizeof(true_type))
             )
         };
     };
 
     // sequential container trait (has_iterator && has_value && !is_string)
 
-    template <typename T> 
+    template <typename T>
     struct is_sequential : trait {
         template <typename U> static true_type  has_iterator(typename U::iterator *);
         template <typename U> static false_type has_iterator(...);
         template <typename U> static true_type  has_value(typename U::value_type *);
         template <typename U> static false_type has_value(...);
-        enum { 
+        enum {
             value = ( true
-                && (!is_string<T>::value) 
+                && (!is_string<T>::value)
                 && (!is_associative<T>::value)
-                && (sizeof(has_iterator<T>(0)) == sizeof(true_type)) 
-                && (sizeof(has_value<T>(0)) == sizeof(true_type)) 
+                && (sizeof(has_iterator<T>(0)) == sizeof(true_type))
+                && (sizeof(has_value<T>(0)) == sizeof(true_type))
             )
         };
     };
 
     // pair container trait (has_first && has_second)
 
-    template <typename T> 
+    template <typename T>
     struct is_pair : trait {
         template <typename U> static true_type  has_first(typename U::first_type *);
         template <typename U> static false_type has_first(...);
         template <typename U> static true_type  has_second(typename U::second_type *);
         template <typename U> static false_type has_second(...);
         enum {
-            value = ( true 
-                && (sizeof(has_first<T>(0)) == sizeof(true_type)) 
-                && (sizeof(has_second<T>(0)) == sizeof(true_type)) 
+            value = ( true
+                && (sizeof(has_first<T>(0)) == sizeof(true_type))
+                && (sizeof(has_second<T>(0)) == sizeof(true_type))
             )
         };
     };
@@ -197,7 +197,7 @@ namespace bourne {
             in >> ( sep = ',' );
             tuple( in, t, int_<Pos-1>() );
         }
-         
+
         template <class Tuple>
         static void tuple( std::istream &in, Tuple &t, int_<1> ) {
             parse( in, std::get<std::tuple_size<Tuple>::value-1>(t) );
@@ -206,17 +206,17 @@ namespace bourne {
         // generic parsers
 
         template <class... Args>
-        static void 
+        static void
         parse( std::istream &in, std::tuple<Args...> &t ) {
             t = std::tuple<Args...> {};
             char sep;
             in >> ( sep = '[' );
-            tuple( in, t, int_<sizeof...(Args)>() ); 
+            tuple( in, t, int_<sizeof...(Args)>() );
             in >> ( sep = ']' );
         }
 
         template <typename T>
-        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type
         parse( std::istream &in, T &t ) {
             t = T {};
             bourne::imports::
@@ -224,7 +224,7 @@ namespace bourne {
         }
 
         template <typename T>
-        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && is_pair<T>::value >::type
         parse( std::istream &in, T &t ) {
             t = T {};
             char sep;
@@ -233,15 +233,15 @@ namespace bourne {
             in >> ( sep = ':' );
             parse( in, t.second );
             in >> ( sep = '}' );
-        }        
+        }
 
         template <typename T>
-        static typename std::enable_if< !is_sequential<T>::value && is_associative<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && is_associative<T>::value && !is_pair<T>::value >::type
         parse( std::istream &in, T &t ) {
             t = T {};
             char sep;
             in >> ( sep = '{' );
-            std::pair< typename std::remove_const<typename T::key_type>::type, typename T::mapped_type > value {}; 
+            std::pair< typename std::remove_const<typename T::key_type>::type, typename T::mapped_type > value {};
             while( !in.fail() && sep != '}' ) {
                 parse( in, value.first );
                 in >> ( sep = ':' );
@@ -252,7 +252,7 @@ namespace bourne {
         }
 
         template <typename T>
-        static typename std::enable_if< is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type
         parse( std::istream &in, T &t) {
             t = T {};
             char sep;
@@ -274,41 +274,41 @@ namespace bourne {
             out << ", ";
             tuple( out, t, int_<Pos-1>() );
         }
-         
+
         template <class Tuple>
         static void tuple( std::ostream &out, const Tuple &t, int_<1> ) {
             print( out, std::get<std::tuple_size<Tuple>::value-1>(t) );
         }
-         
+
         // generic printers
 
         template <class... Args>
-        static void 
+        static void
         print( std::ostream &out, const std::tuple<Args...> &t ) {
             out << "[ ";
-            tuple( out, t, int_<sizeof...(Args)>() ); 
+            tuple( out, t, int_<sizeof...(Args)>() );
             out << " ]";
         }
 
         template <typename T>
-        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type
         print( std::ostream &out, T const &t ) {
             bourne::exports::
             basic( out, t );
         }
 
         template <typename T>
-        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && !is_associative<T>::value && is_pair<T>::value >::type
         print( std::ostream &out, T const &t ) {
             out << "{ ";
             print( out, t.first );
             out << " : ";
             print( out, t.second );
             out << " }";
-        }        
+        }
 
         template <typename T>
-        static typename std::enable_if< !is_sequential<T>::value && is_associative<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< !is_sequential<T>::value && is_associative<T>::value && !is_pair<T>::value >::type
         print( std::ostream &out, T const &t ) {
             std::string sep;
             out << "{ ";
@@ -323,7 +323,7 @@ namespace bourne {
         }
 
         template <typename T>
-        static typename std::enable_if< is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type 
+        static typename std::enable_if< is_sequential<T>::value && !is_associative<T>::value && !is_pair<T>::value >::type
         print( std::ostream &out, T const &t ) {
             std::string sep;
             out << "[ ";
@@ -336,7 +336,7 @@ namespace bourne {
         }
     };
 
-    // API 
+    // API
 
     template <typename T>
     bool to_json( std::ostream &os, const T &t ) {
@@ -403,4 +403,4 @@ namespace bourne { namespace exports { \
 
 #define BOURNE_DEFINE( OBJECT, PARGS ) \
     BOURNE_LOAD( OBJECT, PARGS ) \
-    BOURNE_SAVE( OBJECT, PARGS ) 
+    BOURNE_SAVE( OBJECT, PARGS )

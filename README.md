@@ -5,7 +5,7 @@ Bourne <a href="https://travis-ci.org/r-lyeh/bourne"><img src="https://api.travi
 - Bourne is handy. First-class objects and most STL containers are auto serialized (SFINAE).
 - Bourne is cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
 - Bourne is header-only. No dependencies. Tiny.
-- Bourne is ZLIB/LibPNG licensed.
+- Bourne is zlib/libpng licensed.
 
 ## Current STL status
 
