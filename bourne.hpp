@@ -1,5 +1,5 @@
 /* Bourne is a lightweight JSON serializer written in C++11 w/ SFINAE.
- * Copyright (c) 2013,2014,2015 Mario 'rlyeh' Rodriguez. BOOST licensed
+ * Copyright (c) 2013,2014,2015 Mario 'rlyeh' Rodriguez. ZLIB/LibPNG licensed
 
  * - rlyeh ~~ listening to Incredible Hog / Execution.
  */
