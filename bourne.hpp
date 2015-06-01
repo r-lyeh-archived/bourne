@@ -16,6 +16,10 @@
 #include <type_traits>
 #include <utility>
 
+#define BOURNE_VERSION "1.0.1" /* (2015/06/01) Allow helper macros in header files
+#define BOURNE_VERSION "1.0.0" // (2015/02/25) SFINAE version
+#define BOURNE_VERSION "0.0.0" // (2013/07/15) Initial commit */
+
 namespace bourne {
 
     // imports & exports
@@ -386,7 +390,7 @@ namespace bourne {
 // optional custom-class autoserialization macro
 #define BOURNE_LOAD( OBJECT, PARGS ) \
 namespace bourne { namespace imports { \
-    template<> void basic( std::istream &is, OBJECT ) { \
+    template<> inline void basic( std::istream &is, OBJECT ) { \
         auto _tpl = std::make_tuple PARGS; \
         bourne::from_json( _tpl, is ); \
         std::tie PARGS = _tpl; \
@@ -395,7 +399,7 @@ namespace bourne { namespace imports { \
 
 #define BOURNE_SAVE( OBJECT, PARGS ) \
 namespace bourne { namespace exports { \
-    template<> void basic( std::ostream &os, const OBJECT ) { \
+    template<> inline void basic( std::ostream &os, const OBJECT ) { \
         auto _tpl = std::make_tuple PARGS; \
         bourne::to_json( os, _tpl ); \
     } \

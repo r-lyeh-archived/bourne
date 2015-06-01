@@ -4,7 +4,7 @@ Bourne <a href="https://travis-ci.org/r-lyeh/bourne"><img src="https://api.travi
 - Bourne is a lightweight JSON de/serializer (C++11).
 - Bourne is handy. First-class objects and most STL containers are auto serialized (SFINAE).
 - Bourne is cross-platform. Builds on Windows/Linux/MacosX. Compiles on g++/clang/msvc.
-- Bourne is header-only. No dependencies. Tiny.
+- Bourne is tiny, self-contained, header-only.
 - Bourne is zlib/libpng licensed.
 
 ## Current STL status
@@ -99,3 +99,11 @@ int main() {
 }
 [ "uk", [ 123, 456 ], "just a few contacts" ]
 ```
+
+## Changelog
+- v1.0.1 (2015/06/01)
+  - Allow helper macros in header files
+- v1.0.0 (2015/02/25)
+  - SFINAE version
+- v0.0.0 (2013/07/15)
+  - Initial commit
